@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"time"
-	"github.com/nareix/joy4/utils/bits/pio"
-	"github.com/nareix/joy4/av"
-	"github.com/nareix/joy4/format/ts/tsio"
-	"github.com/nareix/joy4/codec/aacparser"
-	"github.com/nareix/joy4/codec/h264parser"
+	"github.com/adskicker/joy4/utils/bits/pio"
+	"github.com/adskicker/joy4/av"
+	"github.com/adskicker/joy4/format/ts/tsio"
+	"github.com/adskicker/joy4/codec/aacparser"
+	"github.com/adskicker/joy4/codec/h264parser"
 	"io"
 )
 
