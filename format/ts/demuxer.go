@@ -20,6 +20,8 @@ type Demuxer struct {
 	pat     *tsio.PAT
 	pmt     *tsio.PMT
 	streams []*Stream
+	header_to_reprocess bool
+	seqnum  []int
 	tshdr   []byte
 
 	stage int
@@ -115,8 +117,10 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 		switch info.StreamType {
 		case tsio.ElementaryStreamTypeH264:
 			self.streams = append(self.streams, stream)
+			self.seqnum = append(self.seqnum,int(0))
 		case tsio.ElementaryStreamTypeAdtsAAC:
 			self.streams = append(self.streams, stream)
+			self.seqnum = append(self.seqnum,int(0))
 		}
 	}
 	return
@@ -138,12 +142,16 @@ func (self *Demuxer) readTSPacket() (err error) {
 	var pid uint16
 	var start bool
 	var iskeyframe bool
+	var seqnum int
 
-	if _, err = io.ReadFull(self.r, self.tshdr); err != nil {
-		return
+	if !self.header_to_reprocess {
+		if _, err = io.ReadFull(self.r, self.tshdr); err != nil {
+			return
+		}
 	}
+	self.header_to_reprocess = false
 
-	if pid, start, iskeyframe, hdrlen, err = tsio.ParseTSHeader(self.tshdr); err != nil {
+	if pid, start, iskeyframe, hdrlen, seqnum, err = tsio.ParseTSHeader(self.tshdr); err != nil {
 		return
 	}
 	payload := self.tshdr[hdrlen:]
@@ -170,9 +178,19 @@ func (self *Demuxer) readTSPacket() (err error) {
 			}
 		}
 	} else {
-		for _, stream := range self.streams {
+		for id, stream := range self.streams {
 			if pid == stream.pid {
-				if err = stream.handleTSPacket(start, iskeyframe, payload); err != nil {
+				
+				if start {
+					if _, err = self.payloadEnd(); err != nil {
+						self.header_to_reprocess = true
+						return
+					}
+				}
+				old_seqnum := self.seqnum[id]
+				self.seqnum[id] = seqnum
+
+				if err = stream.handleTSPacket(start, iskeyframe, payload, seqnum,old_seqnum); err != nil {
 					return
 				}
 				break
@@ -209,7 +227,9 @@ func (self *Stream) payloadEnd() (n int, err error) {
 		return
 	}
 	if self.datalen != 0 && len(payload) != self.datalen {
-		err = fmt.Errorf("ts: packet size mismatch size=%d correct=%d", len(payload), self.datalen)
+		err = fmt.Errorf("ts: packet size mismatch size=%d correct=%d", self.pid,len(payload), self.datalen)
+		self.data = nil
+		self.datalen = 0
 		return
 	}
 	self.data = nil
@@ -267,11 +287,11 @@ func (self *Stream) payloadEnd() (n int, err error) {
 	return
 }
 
-func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte) (err error) {
+func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte, seqnum int, old_seqnum int) (err error) {
 	if start {
-		if _, err = self.payloadEnd(); err != nil {
+		/*if _, err = self.payloadEnd(); err != nil {
 			return
-		}
+		}*/
 		var hdrlen int
 		if hdrlen, _, self.datalen, self.pts, self.dts, err = tsio.ParsePESHeader(payload); err != nil {
 			return
@@ -284,6 +304,10 @@ func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte) 
 		}
 		self.data = append(self.data, payload[hdrlen:]...)
 	} else {
+		if (old_seqnum + 1)%16 != seqnum {
+			fmt.Println("ERROR seqnum non contiguous:",self.pid,old_seqnum,seqnum)
+			//self.datalen = 0
+		}
 		self.data = append(self.data, payload...)
 	}
 	return

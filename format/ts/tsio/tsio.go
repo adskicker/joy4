@@ -193,7 +193,7 @@ func (self PMT) parseDescs(b []byte) (descs []Descriptor, err error) {
 			desc.Tag = b[n]
 			desc.Data = make([]byte, b[n+1])
 			n += 2
-			if n+len(desc.Data) < len(b) {
+			if n+len(desc.Data) <= len(b) {
 				copy(desc.Data, b[n:])
 				descs = append(descs, desc)
 				n += len(desc.Data)
@@ -306,6 +306,7 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 	datalen = int(pio.U16BE(h[hdrlen:]))&0x3ff - 9
 	hdrlen += 2
 
+
 	if datalen < 0 {
 		err = ErrPSIHeader
 		return
@@ -329,6 +330,8 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 	// data
 
 	// crc(32)
+
+	fmt.Println("PSI:",hdrlen,datalen)
 
 	return
 }
@@ -441,6 +444,7 @@ func ParsePESHeader(h []byte) (hdrlen int, streamid uint8, datalen int, pts, dts
 			dts = TsToTime(pio.U40BE(h[14:19]))
 		}
 	}
+	fmt.Println("PES:",hdrlen,datalen,pts,dts)
 
 	return
 }
@@ -572,7 +576,7 @@ func (self *TSWriter) WritePackets(w io.Writer, datav [][]byte, pcr time.Duratio
 	return
 }
 
-func ParseTSHeader(tshdr []byte) (pid uint16, start bool, iskeyframe bool, hdrlen int, err error) {
+func ParseTSHeader(tshdr []byte) (pid uint16, start bool, iskeyframe bool, hdrlen int, seqnum int, err error) {
 	// https://en.wikipedia.org/wiki/MPEG_transport_stream
 	if tshdr[0] != 0x47 {
 		err = fmt.Errorf("tshdr sync invalid")
@@ -585,6 +589,8 @@ func ParseTSHeader(tshdr []byte) (pid uint16, start bool, iskeyframe bool, hdrle
 		hdrlen += int(tshdr[4])+1
 		iskeyframe = tshdr[5]&0x40 != 0
 	}
+	seqnum = int(tshdr[3]&0xF)
+	//fmt.Println(tshdr,pid,start,iskeyframe,hdrlen,uint8(tshdr[3]&0xF),err)
 	return
 }
 
