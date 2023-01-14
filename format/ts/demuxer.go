@@ -9,6 +9,7 @@ import (
 	"github.com/nareix/joy4/format/ts/tsio"
 	"github.com/nareix/joy4/codec/aacparser"
 	"github.com/nareix/joy4/codec/h264parser"
+	"github.com/nareix/joy4/codec"
 	"io"
 )
 
@@ -103,12 +104,18 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 		return
 	}
 	self.pmt = &tsio.PMT{}
+	fmt.Println(psihdrlen,datalen)
+	fmt.Println(payload)
+	fmt.Println(payload[psihdrlen:psihdrlen+datalen])
+
 	if _, err = self.pmt.Unmarshal(payload[psihdrlen:psihdrlen+datalen]); err != nil {
 		return
 	}
+	fmt.Println(self.pmt)
 
 	self.streams = []*Stream{}
 	for i, info := range self.pmt.ElementaryStreamInfos {
+		fmt.Println(info, info.ElementaryPID,info.StreamType)
 		stream := &Stream{}
 		stream.idx = i
 		stream.demuxer = self
@@ -116,11 +123,16 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 		stream.streamType = info.StreamType
 		switch info.StreamType {
 		case tsio.ElementaryStreamTypeH264:
+			fmt.Println("ElementaryStreamTypeH264")
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
 		case tsio.ElementaryStreamTypeAdtsAAC:
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
+		case tsio.ElementaryStreamTypeEAC3:
+			self.streams = append(self.streams, stream)
+			self.seqnum = append(self.seqnum,int(0))
+			fmt.Println("ElementaryStreamTypeEAC3")
 		}
 	}
 	return
@@ -152,24 +164,36 @@ func (self *Demuxer) readTSPacket() (err error) {
 	self.header_to_reprocess = false
 
 	if pid, start, iskeyframe, hdrlen, seqnum, err = tsio.ParseTSHeader(self.tshdr); err != nil {
+		fmt.Println("ParseTSHeader error")
 		return
 	}
 	payload := self.tshdr[hdrlen:]
+	//fmt.Println(pid,start,iskeyframe,hdrlen,seqnum)
 
 	if self.pat == nil {
+
 		if pid == 0 {
+
 			var psihdrlen int
 			var datalen int
 			if _, _, psihdrlen, datalen, err = tsio.ParsePSI(payload); err != nil {
+				fmt.Println("ParsePSI error")
 				return
 			}
 			self.pat = &tsio.PAT{}
 			if _, err = self.pat.Unmarshal(payload[psihdrlen:psihdrlen+datalen]); err != nil {
+				fmt.Println("Unmarshal error")
 				return
 			}
+			for _, entry := range self.pat.Entries {
+				fmt.Println(entry)
+			}	
 		}
 	} else if self.pmt == nil {
+		fmt.Println("PMT")
 		for _, entry := range self.pat.Entries {
+			fmt.Println(entry, pid)
+
 			if entry.ProgramMapPID == pid {
 				if err = self.initPMT(payload); err != nil {
 					return
@@ -182,7 +206,7 @@ func (self *Demuxer) readTSPacket() (err error) {
 			if pid == stream.pid {
 				
 				if start {
-					if _, err = self.payloadEnd(); err != nil {
+					if _, err = stream.payloadEnd(); err != nil {
 						self.header_to_reprocess = true
 						return
 					}
@@ -235,6 +259,48 @@ func (self *Stream) payloadEnd() (n int, err error) {
 	self.data = nil
 
 	switch self.streamType {
+	case tsio.ElementaryStreamTypeEAC3:
+		//var config aacparser.MPEG4AudioConfig
+
+		delta := time.Duration(0)
+		for len(payload) > 0 {
+			var frame_type uint8
+			var frame_size uint16
+			var num_blocks uint8
+			var sample_rate uint16
+			var channel_count uint8
+			var errParse error
+			var cl av.ChannelLayout
+			
+			if frame_type , frame_size , num_blocks , sample_rate , channel_count , errParse = codec.ParseEAC3Header(payload);errParse != nil {
+				return
+			}
+
+			sample_count := int(num_blocks)*256
+
+
+			if self.CodecData == nil {
+				cl = av.CH_STEREO
+				if channel_count == 1 {
+					cl = av.CH_MONO
+				}
+				if channel_count == 3 {
+					cl = av.CH_2POINT1
+				}		
+				// TODO manage other layout		
+				self.CodecData = codec.NewEAC3CodecData(int(sample_rate),cl)
+			}
+			
+			// RESERVED TYPE
+			if frame_type != 3 {
+				self.addPacket(payload[0:frame_size+2], delta)
+			}
+			n++
+
+			delta += time.Duration(sample_count) * time.Second / time.Duration(sample_rate)
+			payload = payload[frame_size+2:]
+		}
+
 	case tsio.ElementaryStreamTypeAdtsAAC:
 		var config aacparser.MPEG4AudioConfig
 

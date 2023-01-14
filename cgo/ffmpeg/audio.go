@@ -655,6 +655,25 @@ func NewAudioEncoderByName(name string) (enc *AudioEncoder, err error) {
 	return
 }
 
+
+
+func NewAudioDecoderByName(name string) (dec *AudioDecoder, err error) {
+	_dec := &AudioDecoder{}
+
+	codec := C.avcodec_find_decoder_by_name(C.CString(name))
+	if codec == nil || C.avcodec_get_type(codec.id) != C.AVMEDIA_TYPE_AUDIO {
+		err = fmt.Errorf("ffmpeg: cannot find audio decoder name=%s", name)
+		return
+	}
+
+	if _dec.ff, err = newFFCtxByCodec(codec); err != nil {
+		return
+	}
+	dec = _dec
+	return
+}
+
+
 func NewAudioDecoder(codec av.AudioCodecData) (dec *AudioDecoder, err error) {
 	_dec := &AudioDecoder{}
 	var id uint32
@@ -677,6 +696,11 @@ func NewAudioDecoder(codec av.AudioCodecData) (dec *AudioDecoder, err error) {
 
 	case av.PCM_ALAW:
 		id = C.AV_CODEC_ID_PCM_ALAW
+
+	case av.EAC3:
+		fmt.Println("EAC3")
+		id = C.AV_CODEC_ID_EAC3
+
 
 	default:
 		if ffcodec, ok := codec.(audioCodecData); ok {

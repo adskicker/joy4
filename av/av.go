@@ -122,6 +122,7 @@ var (
 	PCM_ALAW  = MakeAudioCodecType(avCodecTypeMagic + 3)
 	SPEEX = MakeAudioCodecType(avCodecTypeMagic + 4)
 	NELLYMOSER = MakeAudioCodecType(avCodecTypeMagic + 5)
+	EAC3 = MakeAudioCodecType(avCodecTypeMagic + 6)
 )
 
 const codecTypeAudioBit = 0x1
@@ -141,6 +142,8 @@ func (self CodecType) String() string {
 		return "SPEEX"
 	case NELLYMOSER:
 		return "NELLYMOSER"
+	case EAC3:
+		return "EAC3"
 	}
 	return ""
 }

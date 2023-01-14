@@ -35,6 +35,7 @@ var ErrParsePAT = fmt.Errorf("invalid PAT")
 const (
 	ElementaryStreamTypeH264    = 0x1B
 	ElementaryStreamTypeAdtsAAC = 0x0F
+	ElementaryStreamTypeEAC3    = 0x87
 )
 
 type PATEntry struct {
@@ -67,6 +68,7 @@ func (self PAT) Marshal(b []byte) (n int) {
 }
 
 func (self *PAT) Unmarshal(b []byte) (n int, err error) {
+	fmt.Println(b)
 	for n < len(b) {
 		if n+4 <= len(b) {
 			var entry PATEntry
@@ -303,7 +305,8 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 	hdrlen++
 
 	// section_syntax_indicator(1)=1,private_bit(1)=0,reserved(2)=3,unused(2)=0,section_length(10)
-	datalen = int(pio.U16BE(h[hdrlen:]))&0x3ff - 9
+	fmt.Println(hdrlen,"pio:",pio.U16BE(h[hdrlen:]))
+	datalen = int(pio.U16BE(h[hdrlen:]))&0x3ff - 5 - 4
 	hdrlen += 2
 
 
@@ -331,7 +334,7 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 
 	// crc(32)
 
-	fmt.Println("PSI:",hdrlen,datalen)
+	fmt.Println("PSI:",hdrlen,datalen,h[hdrlen:hdrlen+datalen])
 
 	return
 }
