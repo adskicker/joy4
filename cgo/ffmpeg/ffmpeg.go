@@ -1,7 +1,7 @@
 package ffmpeg
 
 /*
-#cgo LDFLAGS: -lavformat -lavutil -lavcodec -lswresample -lswscale
+#cgo LDFLAGS: -lavformat -lavutil -lavcodec -lswresample -lswscale -lavfilter
 #include "ffmpeg.h"
 void ffinit() {
 	av_register_all();
@@ -46,6 +46,9 @@ func init() {
 
 type ffctx struct {
 	ff C.FFCtx
+	g_buffersink_ctx *C.AVFilterContext
+	g_buffersrc_ctx	 *C.AVFilterContext
+	g_filter_graph *C.AVFilterGraph
 }
 
 func newFFCtxByCodec(codec *C.AVCodec) (ff *ffctx, err error) {

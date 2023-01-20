@@ -7,6 +7,10 @@
 #include <string.h>
 #include <libswscale/swscale.h>
 
+
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+
 typedef struct {
 	AVCodec *codec;
 	AVCodecContext *codecCtx;
