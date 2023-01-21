@@ -198,6 +198,8 @@ func (self *Client) SendRtpKeepalive() (err error) {
 				Method: "OPTIONS",
 				Uri:    self.requestUri,
 			}
+			req.Header = append(req.Header, "Session: "+self.session)
+
 			if err = self.WriteRequest(req); err != nil {
 				return
 			}
@@ -1254,17 +1256,19 @@ func (self *Client) ReadPacket() (pkt av.Packet, err error) {
 func (self *Client) ReadFrame() (frame []byte, err error) {
 	var res Response
 
-	fmt.Println("0")
-
 	if err = self.prepare(stageCodecDataDone); err != nil {
 		return
 	}
-	fmt.Println("1")
+
+	if err = self.SendRtpKeepalive(); err != nil {
+		return
+	}
+
 	if res, err = self.poll(); err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("2")
+
 	if len(res.Block) > 0 {
 		frame = res.Block[4:]
 	}
