@@ -53,9 +53,11 @@ func (self *Demuxer) probe() (err error) {
 				for _, stream := range self.streams {
 					if stream.CodecData != nil {
 						n++
+						//fmt.Println("probe stream.CodecData != nil",id)
 					}
 				}
 				if n == len(self.streams) {
+					//fmt.Println("probe n == len(self.streams)",n)
 					break
 				}
 			}
@@ -63,7 +65,9 @@ func (self *Demuxer) probe() (err error) {
 				return
 			}
 		}
+		//fmt.Println("probe self.stage++")
 		self.stage++
+
 	}
 	return
 }
@@ -104,9 +108,9 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 		return
 	}
 	self.pmt = &tsio.PMT{}
-	fmt.Println(psihdrlen,datalen)
-	fmt.Println(payload)
-	fmt.Println(payload[psihdrlen:psihdrlen+datalen])
+	//fmt.Println(psihdrlen,datalen)
+	//fmt.Println(payload)
+	//fmt.Println(payload[psihdrlen:psihdrlen+datalen])
 
 	if _, err = self.pmt.Unmarshal(payload[psihdrlen:psihdrlen+datalen]); err != nil {
 		return
@@ -115,7 +119,7 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 
 	self.streams = []*Stream{}
 	for i, info := range self.pmt.ElementaryStreamInfos {
-		fmt.Println(info, info.ElementaryPID,info.StreamType)
+		//fmt.Println(info, info.ElementaryPID,info.StreamType)
 		stream := &Stream{}
 		stream.idx = i
 		stream.demuxer = self
@@ -127,8 +131,18 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
 		case tsio.ElementaryStreamTypeAdtsAAC:
+			fmt.Println("ElementaryStreamTypeAdtsAAC")
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
+		case tsio.ElementaryStreamTypePrivateData:
+			for _, t := range info.Descriptors {
+				if t.Tag == 0x7a {
+					self.streams = append(self.streams, stream)
+					self.seqnum = append(self.seqnum,int(0))
+					fmt.Println("ElementaryStreamTypePrivateData with EAC3")
+					break
+				} 
+			}
 		case tsio.ElementaryStreamTypeEAC3:
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
@@ -168,7 +182,7 @@ func (self *Demuxer) readTSPacket() (err error) {
 		return
 	}
 	payload := self.tshdr[hdrlen:]
-	//fmt.Println(pid,start,iskeyframe,hdrlen,seqnum)
+	//fmt.Println(pid,start,iskeyframe,hdrlen,seqnum,payload)
 
 	if self.pat == nil {
 
@@ -185,12 +199,12 @@ func (self *Demuxer) readTSPacket() (err error) {
 				fmt.Println("Unmarshal error")
 				return
 			}
-			for _, entry := range self.pat.Entries {
+			/*for _, entry := range self.pat.Entries {
 				fmt.Println(entry)
-			}	
+			}*/	
 		}
 	} else if self.pmt == nil {
-		fmt.Println("PMT")
+		//fmt.Println("PMT")
 		for _, entry := range self.pat.Entries {
 			fmt.Println(entry, pid)
 
@@ -206,10 +220,11 @@ func (self *Demuxer) readTSPacket() (err error) {
 			if pid == stream.pid {
 				
 				if start {
-					if _, err = stream.payloadEnd(); err != nil {
+					var n int
+					if n, err = stream.payloadEnd(); err != nil || n != 0 {
 						self.header_to_reprocess = true
 						return
-					}
+					} 
 				}
 				old_seqnum := self.seqnum[id]
 				self.seqnum[id] = seqnum
@@ -246,12 +261,14 @@ func (self *Stream) addPacket(payload []byte, timedelta time.Duration) {
 }
 
 func (self *Stream) payloadEnd() (n int, err error) {
+	self.isstarted = false
+
 	payload := self.data
 	if payload == nil {
 		return
 	}
 	if self.datalen != 0 && len(payload) != self.datalen {
-		err = fmt.Errorf("ts: packet size mismatch size=%d correct=%d", self.pid,len(payload), self.datalen)
+		err = fmt.Errorf("ts: packet size mismatch size=%d correct=%d for pid=%d",len(payload), self.datalen, self.pid)
 		self.data = nil
 		self.datalen = 0
 		return
@@ -260,6 +277,7 @@ func (self *Stream) payloadEnd() (n int, err error) {
 
 	switch self.streamType {
 	case tsio.ElementaryStreamTypeEAC3:
+	case tsio.ElementaryStreamTypePrivateData:
 		//var config aacparser.MPEG4AudioConfig
 
 		delta := time.Duration(0)
@@ -273,6 +291,8 @@ func (self *Stream) payloadEnd() (n int, err error) {
 			var cl av.ChannelLayout
 			
 			if frame_type , frame_size , num_blocks , sample_rate , channel_count , errParse = codec.ParseEAC3Header(payload);errParse != nil {
+				fmt.Println("error ParseEAC3Header",errParse,len(payload),payload,self.datalen)
+				err=errParse
 				return
 			}
 
@@ -369,12 +389,15 @@ func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte, 
 			self.data = make([]byte, 0, self.datalen)
 		}
 		self.data = append(self.data, payload[hdrlen:]...)
+		self.isstarted = true
 	} else {
-		if (old_seqnum + 1)%16 != seqnum {
-			fmt.Println("ERROR seqnum non contiguous:",self.pid,old_seqnum,seqnum)
-			//self.datalen = 0
+		if self.isstarted {
+			if (old_seqnum + 1)%16 != seqnum {
+				fmt.Println("ERROR seqnum non contiguous:",self.pid,old_seqnum,seqnum)
+				//self.datalen = 0
+			}
+			self.data = append(self.data, payload...)
 		}
-		self.data = append(self.data, payload...)
 	}
 	return
 }

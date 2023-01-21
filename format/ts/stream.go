@@ -23,5 +23,6 @@ type Stream struct {
 	pts, dts time.Duration
 	data []byte
 	datalen int
+	isstarted bool
 }
 
