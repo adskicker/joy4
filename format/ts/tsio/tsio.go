@@ -36,6 +36,7 @@ const (
 	ElementaryStreamTypeH264    = 0x1B
 	ElementaryStreamTypeAdtsAAC = 0x0F
 	ElementaryStreamTypeEAC3    = 0x87
+	ElementaryStreamTypePrivateData = 0x06 // custom type that may contain EAC3 streams
 )
 
 type PATEntry struct {
@@ -305,7 +306,7 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 	hdrlen++
 
 	// section_syntax_indicator(1)=1,private_bit(1)=0,reserved(2)=3,unused(2)=0,section_length(10)
-	fmt.Println(hdrlen,"pio:",pio.U16BE(h[hdrlen:]))
+	//fmt.Println(hdrlen,"pio:",pio.U16BE(h[hdrlen:]))
 	datalen = int(pio.U16BE(h[hdrlen:]))&0x3ff - 5 - 4
 	hdrlen += 2
 
@@ -334,7 +335,7 @@ func ParsePSI(h []byte) (tableid uint8, tableext uint16, hdrlen int, datalen int
 
 	// crc(32)
 
-	fmt.Println("PSI:",hdrlen,datalen,h[hdrlen:hdrlen+datalen])
+	//fmt.Println("PSI:",hdrlen,datalen,h[hdrlen:hdrlen+datalen])
 
 	return
 }
@@ -415,17 +416,27 @@ const (
 	PCR_HZ = 27000000
 )
 
+// NB: This parse function do not handle cases where optional PES header is not present and may generate a Parse error
 func ParsePESHeader(h []byte) (hdrlen int, streamid uint8, datalen int, pts, dts time.Duration, err error) {
+	//fmt.Println(len(h),h)
 	if h[0] != 0 || h[1] != 0 || h[2] != 1 {
 		err = ErrPESHeader
 		return
 	}
 	streamid = h[3]
 
+
+	if len(h) < 9 {
+		// packet length is too small to carry optional PES header and continue parsing
+		err = ErrPESHeader
+		return
+	}
+
 	flags := h[7]
 	hdrlen = int(h[8])+9
-
+	
 	datalen = int(pio.U16BE(h[4:6]))
+
 	if datalen > 0 {
 		datalen -= int(h[8])+3
 	}
@@ -447,7 +458,7 @@ func ParsePESHeader(h []byte) (hdrlen int, streamid uint8, datalen int, pts, dts
 			dts = TsToTime(pio.U40BE(h[14:19]))
 		}
 	}
-	fmt.Println("PES:",hdrlen,datalen,pts,dts)
+	//fmt.Println("PES:",hdrlen,datalen,pts,dts)
 
 	return
 }
