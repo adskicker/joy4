@@ -70,7 +70,7 @@ static int init_filters(AVCodecContext *dec_ctx,AVFilterGraph **filter_graph, AV
     //        dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
     
     snprintf(args, sizeof(args),"video_size=1920x1080:pix_fmt=0:time_base=1/90000:pixel_aspect=1/1");
-    printf("%s\n",args);
+    //printf("%s\n",args);
 
     ret = avfilter_graph_create_filter(buffersrc_ctx, buffersrc, "in",
                                        args, NULL, *filter_graph);
@@ -219,13 +219,13 @@ func (self *VideoDecoder) Decode(pkt []byte, dts int64, pts int64) (img *VideoFr
 
 		cerr = C.wrap_av_filter(self.ff.g_buffersrc_ctx,self.ff.g_buffersink_ctx, frame,frame_filtered);
 
-		fmt.Println("w h ys cs",frame.format,frame.width,frame.height,frame.linesize[0],frame.linesize[1],frame.pict_type,frame.colorspace,frame.color_range,frame.buf,frame)
+		//fmt.Println("w h ys cs",frame.format,frame.width,frame.height,frame.linesize[0],frame.linesize[1],frame.pict_type,frame.colorspace,frame.color_range,frame.buf,frame)
 
 		cpts = frame.pts
 		C.av_frame_free(&frame)
 
 		if cerr >= 0 {
-			fmt.Println("couocu",frame_filtered,frame_filtered.format)
+			//fmt.Println("couocu",frame_filtered,frame_filtered.format)
 
 			/*w := int(frame_filtered.width)
 			h := int(frame_filtered.height)
@@ -294,11 +294,11 @@ func (self *VideoDecoder) Decode(pkt []byte, dts int64, pts int64) (img *VideoFr
 			img = &VideoFrame{Image:*imgYCbCr, Frame: frame_filtered}
 			img.Pts = int64(cpts)//int64(frame.pts)
 			if int(frame_filtered.interlaced_frame) == 1 {
-				fmt.Println("interlaced",frame_filtered.pts,frame_filtered.pkt_dts,frame_filtered.display_picture_number)
+				//fmt.Println("interlaced",frame_filtered.pts,frame_filtered.pkt_dts,frame_filtered.display_picture_number)
 			}
 			runtime.SetFinalizer(img, freeVideoFrame)
 		} else {
-			fmt.Println("couocu bad",cerr)
+			//fmt.Println("couocu bad",cerr)
 		}
 	}
 
