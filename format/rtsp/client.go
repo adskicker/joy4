@@ -121,7 +121,7 @@ func Dial(uri string) (self *Client, err error) {
 }
 
 func (self *Client) allCodecDataReady() bool {
-	fmt.Println("allCodecDataReady")
+	//fmt.Println("allCodecDataReady")
 
 	for _, si:= range self.setupIdx {
 		stream := self.streams[si]
@@ -133,7 +133,7 @@ func (self *Client) allCodecDataReady() bool {
 }
 
 func (self *Client) probe() (err error) {
-	fmt.Println("probe")
+	//fmt.Println("probe")
 	for {
 		if self.allCodecDataReady() {
 			break
@@ -147,7 +147,7 @@ func (self *Client) probe() (err error) {
 }
 
 func (self *Client) prepare(stage int) (err error) {
-	fmt.Println(self.stage,stage)
+	//fmt.Println(self.stage,stage)
 	for self.stage < stage {
 		switch self.stage {
 		case 0:
@@ -440,11 +440,11 @@ func (self *Client) findRTSP() (block []byte, data []byte, err error) {
 		}
 
 		if stat == Dollar && len(peek) >= 12 {
-			//if self.DebugRtp {
+			if self.DebugRtp {
 				fmt.Println("rtsp: dollar at", i, len(peek))
-			//}
+			}
 			if blocklen, _, ok := self.parseBlockHeader(peek); ok {
-				fmt.Println("blocklen",blocklen,peek)
+				//fmt.Println("blocklen",blocklen,peek)
 				left := blocklen+4-len(peek)
 				block = append(peek, make([]byte, left)...)
 				if _, err = io.ReadFull(self.brconn, block[len(peek):]); err != nil {
@@ -501,7 +501,7 @@ func (self *Client) readLFLF() (block []byte, data []byte, err error) {
 			hdrlen := dollarpos-pos
 			start := len(peek)-hdrlen
 			if blocklen, _, ok := self.parseBlockHeader(peek[start:]); ok {
-				fmt.Println("blocklen lf lf",blocklen,peek[start:])
+				//fmt.Println("blocklen lf lf",blocklen,peek[start:])
 				block = append(peek[start:], make([]byte, blocklen+4-hdrlen)...)
 				if _, err = io.ReadFull(self.brconn, block[hdrlen:]); err != nil {
 					return
@@ -541,25 +541,25 @@ func (self *Client) poll() (res Response, err error) {
 
 	self.conn.Timeout = self.RtspTimeout
 	for {
-		fmt.Println("poll 1")
+		//fmt.Println("poll 1")
 		if block, rtsp, err = self.findRTSP(); err != nil {
 			return
 		}
-		fmt.Println("poll 2")
+		//fmt.Println("poll 2")
 		if len(block) > 0 {
 			res.Block = block
 			return
 		} else {
-			fmt.Println("poll 3")
+			//fmt.Println("poll 3")
 			if block, headers, err = self.readLFLF(); err != nil {
 				return
 			}
-			fmt.Println("poll 4")
+			//fmt.Println("poll 4")
 			if len(block) > 0 {
 				res.Block = block
 				return
 			}
-			fmt.Println("poll 5")
+			//fmt.Println("poll 5")
 			if res, err = self.readResp(append(rtsp, headers...)); err != nil {
 				return
 			}
@@ -571,7 +571,7 @@ func (self *Client) poll() (res Response, err error) {
 }
 
 func (self *Client) ReadResponse() (res Response, err error) {
-	fmt.Println("ReadResponse")
+	//fmt.Println("ReadResponse")
 	for {
 		if res, err = self.poll(); err != nil {
 			return
@@ -584,7 +584,7 @@ func (self *Client) ReadResponse() (res Response, err error) {
 }
 
 func (self *Client) SetupAll() (err error) {
-	fmt.Println("SetupAll")
+	//fmt.Println("SetupAll")
 
 	idx := []int{}
 	for i := range self.streams {
@@ -594,7 +594,7 @@ func (self *Client) SetupAll() (err error) {
 }
 
 func (self *Client) Setup(idx []int) (err error) {
-	fmt.Println("Setup")
+	//fmt.Println("Setup")
 
 	if err = self.prepare(stageDescribeDone); err != nil {
 		return
@@ -643,7 +643,7 @@ func md5hash(s string) string {
 func (self *Client) Describe() (streams []sdp.Media, err error) {
 	var res Response
 
-	fmt.Println("Describe")
+	//fmt.Println("Describe")
 
 	for i := 0; i < 2; i++ {
 		req := Request{
@@ -1124,7 +1124,7 @@ func (self *Stream) handleRtpPacket(packet []byte) (err error) {
 }
 
 func (self *Client) Play() (err error) {
-	fmt.Println("Play")
+	//fmt.Println("Play")
 	req := Request{
 		Method: "PLAY",
 		Uri:    self.requestUri,
