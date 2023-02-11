@@ -203,7 +203,7 @@ var StartCodeBytes = []byte{0,0,1}
 var AUDBytes = []byte{0,0,0,1,0x9,0xf0,0,0,0,1} // AUD
 
 func CheckNALUsType(b []byte) (typ int) {
-	_, typ = SplitNALUs(b)
+	_,_, typ = SplitNALUs(b)
 	return
 }
 
@@ -213,9 +213,9 @@ const (
 	NALU_ANNEXB
 )
 
-func SplitNALUs(b []byte) (nalus [][]byte, typ int) {
+func SplitNALUs(b []byte) (nalus [][]byte,nalus_pos[]int, typ int) {
 	if len(b) < 4 {
-		return [][]byte{b}, NALU_RAW
+		return [][]byte{b}, []int{0}, NALU_RAW
 	}
 
 	val3 := pio.U24BE(b)
@@ -239,7 +239,8 @@ func SplitNALUs(b []byte) (nalus [][]byte, typ int) {
 			}
 		}
 		if len(_b) == 0 {
-			return nalus, NALU_AVCC
+			nalus_pos = append(nalus_pos,0)
+			return nalus, nalus_pos, NALU_AVCC
 		}
 	}
 
@@ -252,6 +253,7 @@ func SplitNALUs(b []byte) (nalus [][]byte, typ int) {
 		for {
 			if start != pos {
 				nalus = append(nalus, b[start:pos])
+				nalus_pos = append(nalus_pos,start)
 			}
 			if _val3 == 1 {
 				pos += 3
@@ -287,7 +289,7 @@ func SplitNALUs(b []byte) (nalus [][]byte, typ int) {
 		return
 	}
 
-	return [][]byte{b}, NALU_RAW
+	return [][]byte{b},[]int{0}, NALU_RAW
 }
 
 type SPSInfo struct {

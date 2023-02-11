@@ -342,30 +342,96 @@ func (self *Stream) payloadEnd() (n int, err error) {
 		}
 
 	case tsio.ElementaryStreamTypeH264:
-		nalus, _ := h264parser.SplitNALUs(payload)
+		/*fmt.Println("h264",payload[0:14])
+		if len(payload) >= 4 && payload[0] == 0 && payload[1] == 0 && payload[2] == 0 && payload[3] == 1 {
+			//isBuggy := true
+			if nalus,_, typ := h264parser.SplitNALUs(payload); typ != h264parser.NALU_RAW {
+				for _, nalu := range nalus {
+					if len(nalu) > 0 {
+					//	fmt.Println("FAILLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
+
+						//if err = self.handleH264Payload(timestamp, nalu); err != nil {
+						//	return
+						//}
+					}
+				}
+			} else {
+				fmt.Println("typ != h264parser.NALU_RAW")
+			}
+		} else {
+			fmt.Println("FAILLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
+
+		}*/
+
+		//changed := false
+		nalus, nalus_pos,_ := h264parser.SplitNALUs(payload)
+		//fmt.Println(typ,len(nalus),len(payload))
+		//var bb []byte
+		header_len := 0
 		var sps, pps []byte
-		for _, nalu := range nalus {
+		for idx, nalu := range nalus {
+			//fmt.Println("len:",len(nalu))
 			if len(nalu) > 0 {
 				naltype := nalu[0] & 0x1f
+				//fmt.Println(naltype)
+
+				/*if naltype == 28 || naltype == 24 {
+					fmt.Println("FAILLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
+				}*/
 				switch {
+				/*case naltype == 9:
+					fmt.Println("AUD",nalu,self.pps,self.sps)*/
+
+
 				case naltype == 7:
+					/*if bytes.Compare(self.sps,nalu) != 0 {
+						fmt.Println("FAILLL1")
+	
+						changed = true
+
+					}*/
 					sps = nalu
+					//self.sps = sps
 				case naltype == 8:
+					/*if bytes.Compare(self.pps,nalu) != 0 {
+						fmt.Println("FAILLL2",nalu)
+						changed = true
+
+					}*/
 					pps = nalu
+					//self.pps = pps
 				case h264parser.IsDataNALU(nalu):
 					// raw nalu to avcc
-					b := make([]byte, 4+len(nalu))
-					pio.PutU32BE(b[0:4], uint32(len(nalu)))
-					copy(b[4:], nalu)
+					//b := make([]byte, 4+len(nalu))
+					//pio.PutU32BE(b[0:4], uint32(len(nalu)))
+					//copy(b[4:], nalu)
+					if header_len == 0 {
+						header_len = nalus_pos[idx]
+					}
+
+					b := make([]byte, header_len+len(nalu))
+					copy(b[0:header_len], payload[0:header_len])
+					copy(b[header_len:], nalu)					
+					
 					self.addPacket(b, time.Duration(0))
+					//fmt.Println("payloadEnd new",len(b),b[0:20],nalu[0:14])
+
+					//bb = b
 					n++
 				}
 			}
 		}
+		/*if n >= 1 {
+			fmt.Println("payloadEnd count",n)
+			//self.addPacket(bb, time.Duration(0))
+		}*/
 
-		if self.CodecData == nil && len(sps) > 0 && len(pps) > 0 {
+		if self.CodecData == nil && len(sps) > 0 && len(pps) > 0{
 			if self.CodecData, err = h264parser.NewCodecDataFromSPSAndPPS(sps, pps); err != nil {
+				fmt.Println("update pps sps error")
 				return
+			} else {
+				//fmt.Println(self.CodecData.RecordInfo)
 			}
 		}
 	}
@@ -382,6 +448,7 @@ func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte, 
 		if hdrlen, _, self.datalen, self.pts, self.dts, err = tsio.ParsePESHeader(payload); err != nil {
 			return
 		}
+		
 		self.iskeyframe = iskeyframe
 		if self.datalen == 0 {
 			self.data = make([]byte, 0, 4096)
@@ -392,12 +459,11 @@ func (self *Stream) handleTSPacket(start bool, iskeyframe bool, payload []byte, 
 		self.isstarted = true
 	} else {
 		if self.isstarted {
-			if (old_seqnum + 1)%16 != seqnum {
-				fmt.Println("ERROR seqnum non contiguous:",self.pid,old_seqnum,seqnum)
-				//self.datalen = 0
-			}
 			self.data = append(self.data, payload...)
 		}
+	}
+	if (old_seqnum + 1)%16 != seqnum {
+		fmt.Println("ERROR seqnum non contiguous:",self.pid,old_seqnum,seqnum)
 	}
 	return
 }

@@ -762,7 +762,7 @@ func (self *Stream) makeCodecData() (err error) {
 			}
 
 			if len(self.sps) == 0 || len(self.pps) == 0 {
-				if nalus, typ := h264parser.SplitNALUs(media.Config); typ != h264parser.NALU_RAW {
+				if nalus, _, typ := h264parser.SplitNALUs(media.Config); typ != h264parser.NALU_RAW {
 					for _, nalu := range nalus {
 						if len(nalu) > 0 {
 							self.handleH264Payload(0, nalu)
@@ -811,7 +811,7 @@ func (self *Stream) makeCodecData() (err error) {
 func (self *Stream) handleBuggyAnnexbH264Packet(timestamp uint32, packet []byte) (isBuggy bool, err error) {
 	if len(packet) >= 4 && packet[0] == 0 && packet[1] == 0 && packet[2] == 0 && packet[3] == 1 {
 		isBuggy = true
-		if nalus, typ := h264parser.SplitNALUs(packet); typ != h264parser.NALU_RAW {
+		if nalus, _, typ := h264parser.SplitNALUs(packet); typ != h264parser.NALU_RAW {
 			for _, nalu := range nalus {
 				if len(nalu) > 0 {
 					if err = self.handleH264Payload(timestamp, nalu); err != nil {
@@ -834,6 +834,30 @@ func (self *Stream) handleH264Payload(timestamp uint32, packet []byte) (err erro
 	if isBuggy, err = self.handleBuggyAnnexbH264Packet(timestamp, packet); isBuggy {
 		return
 	}
+
+/*
+case tsio.ElementaryStreamTypeH264:
+		nalus, _ := h264parser.SplitNALUs(payload)
+		var sps, pps []byte
+		for _, nalu := range nalus {
+			if len(nalu) > 0 {
+				naltype := nalu[0] & 0x1f
+				switch {
+				case naltype == 7:
+					sps = nalu
+				case naltype == 8:
+					pps = nalu
+				case h264parser.IsDataNALU(nalu):
+					// raw nalu to avcc
+					b := make([]byte, 4+len(nalu))
+					pio.PutU32BE(b[0:4], uint32(len(nalu)))
+					copy(b[4:], nalu)
+					self.addPacket(b, time.Duration(0))
+					n++
+				}
+			}
+		}
+*/
 
 	naluType := packet[0]&0x1f
 

@@ -26,9 +26,15 @@ int wrap_avcodec_decode_video2(AVCodecContext *ctx, AVFrame *frame, void *data, 
 	}
 
 	ret = avcodec_receive_frame(ctx, frame);
-	if (ret == 0) {
-		 *got = 1;
+	switch  (ret) {
+	case 0:
+			*got = 1;
+			break;
+	case AVERROR(EAGAIN):
+			ret = 0; // hide this error because this is normal
+			break;
 	}
+
 	return ret; 
 }
 

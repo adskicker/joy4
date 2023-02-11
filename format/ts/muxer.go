@@ -178,7 +178,7 @@ func (self *Muxer) WritePacket(pkt av.Packet) (err error) {
 			nalus = append(nalus, codec.SPS())
 			nalus = append(nalus, codec.PPS())
 		}
-		pktnalus, _ := h264parser.SplitNALUs(pkt.Data)
+		pktnalus,_, _ := h264parser.SplitNALUs(pkt.Data)
 		for _, nalu := range pktnalus {
 			nalus = append(nalus, nalu)
 		}
