@@ -115,11 +115,11 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 	if _, err = self.pmt.Unmarshal(payload[psihdrlen:psihdrlen+datalen]); err != nil {
 		return
 	}
-	fmt.Println(self.pmt)
+	//fmt.Println(self.pmt)
 
 	self.streams = []*Stream{}
 	for i, info := range self.pmt.ElementaryStreamInfos {
-		//fmt.Println(info, info.ElementaryPID,info.StreamType)
+		fmt.Println(info, info.ElementaryPID,info.StreamType)
 		stream := &Stream{}
 		stream.idx = i
 		stream.demuxer = self
@@ -182,9 +182,10 @@ func (self *Demuxer) readTSPacket() (err error) {
 		return
 	}
 	payload := self.tshdr[hdrlen:]
-	//fmt.Println(pid,start,iskeyframe,hdrlen,seqnum,payload)
+	//fmt.Println(pid,start,iskeyframe,hdrlen,seqnum)//,payload)
 
 	if self.pat == nil {
+		//fmt.Println("pat == nil",pid)
 
 		if pid == 0 {
 
@@ -201,7 +202,7 @@ func (self *Demuxer) readTSPacket() (err error) {
 			}
 			/*for _, entry := range self.pat.Entries {
 				fmt.Println(entry)
-			}*/	
+			}*/
 		}
 	} else if self.pmt == nil {
 		//fmt.Println("PMT")
@@ -218,6 +219,8 @@ func (self *Demuxer) readTSPacket() (err error) {
 	} else {
 		for id, stream := range self.streams {
 			if pid == stream.pid {
+				//fmt.Println("TH OK",pid)
+
 				
 				if start {
 					var n int
@@ -276,8 +279,7 @@ func (self *Stream) payloadEnd() (n int, err error) {
 	self.data = nil
 
 	switch self.streamType {
-	case tsio.ElementaryStreamTypeEAC3:
-	case tsio.ElementaryStreamTypePrivateData:
+	case tsio.ElementaryStreamTypePrivateData,tsio.ElementaryStreamTypeEAC3:
 		//var config aacparser.MPEG4AudioConfig
 
 		delta := time.Duration(0)
