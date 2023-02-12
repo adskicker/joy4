@@ -203,7 +203,11 @@ func freeVideoFrame(self *VideoFrame) {
 	self.Free()
 }
 
-func (self *VideoDecoder) Decode(pkt []byte, dts int64, pts int64) (img *VideoFrame, err error) {
+func (self *VideoDecoder) Decode(pkt []byte) (img *VideoFrame, err error) {
+    return self.DecodeWithTs(pkt,0,0)
+}
+
+func (self *VideoDecoder) DecodeWithTs(pkt []byte, dts int64, pts int64) (img *VideoFrame, err error) {
 	ff := &self.ff.ff
 
 	cgotimg := C.int(0)
