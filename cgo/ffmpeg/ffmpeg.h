@@ -2,7 +2,7 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
-//#include <libswresample/swresample.h>
+#include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 #include <string.h>
 #include <libswscale/swscale.h>
