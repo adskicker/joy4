@@ -48,6 +48,22 @@ type SpeexCodecData struct {
 	fake.CodecData
 }
 
+type UnknownCodecData struct {
+	fake.CodecData
+}
+
+func NewUnknownCodecData() UnknownCodecData {
+	codec := UnknownCodecData{}
+	codec.CodecType_ = av.UNKNOWN
+	return codec
+}
+func (self UnknownCodecData) PacketDuration(data []byte) (time.Duration, error) {
+	return time.Millisecond*20, nil
+}
+
+
+
+
 func (self SpeexCodecData) PacketDuration(data []byte) (time.Duration, error) {
 	// libavcodec/libspeexdec.c
 	// samples = samplerate/50

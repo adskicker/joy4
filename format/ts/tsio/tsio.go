@@ -37,6 +37,7 @@ const (
 	ElementaryStreamTypeAdtsAAC = 0x0F
 	ElementaryStreamTypeEAC3    = 0x87
 	ElementaryStreamTypePrivateData = 0x06 // custom type that may contain EAC3 streams
+	ElementaryStreamTypeUnknown = 0x05
 )
 
 type PATEntry struct {

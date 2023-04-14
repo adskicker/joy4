@@ -135,18 +135,33 @@ func (self *Demuxer) initPMT(payload []byte) (err error) {
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
 		case tsio.ElementaryStreamTypePrivateData:
+			var StreamAdded = false
 			for _, t := range info.Descriptors {
 				if t.Tag == 0x7a {
 					self.streams = append(self.streams, stream)
 					self.seqnum = append(self.seqnum,int(0))
 					fmt.Println("ElementaryStreamTypePrivateData with EAC3")
+					StreamAdded = true
 					break
-				} 
+				}
+			}
+			if StreamAdded == false {
+				stream.streamType = tsio.ElementaryStreamTypeUnknown
+				stream.CodecData = codec.NewUnknownCodecData()
+				self.streams = append(self.streams, stream)
+				self.seqnum = append(self.seqnum,int(0))
+				fmt.Println("ElementaryStreamTypePrivateData converted to ElementaryStreamTypeUnknown")
 			}
 		case tsio.ElementaryStreamTypeEAC3:
 			self.streams = append(self.streams, stream)
 			self.seqnum = append(self.seqnum,int(0))
 			fmt.Println("ElementaryStreamTypeEAC3")
+		default:
+			stream.streamType = tsio.ElementaryStreamTypeUnknown
+			stream.CodecData = codec.NewUnknownCodecData()
+			self.streams = append(self.streams, stream)
+			self.seqnum = append(self.seqnum,int(0))
+			fmt.Println("ElementaryStreamTypeUnknown")
 		}
 	}
 	return
@@ -232,10 +247,12 @@ func (self *Demuxer) readTSPacket() (err error) {
 				old_seqnum := self.seqnum[id]
 				self.seqnum[id] = seqnum
 
-				if err = stream.handleTSPacket(start, iskeyframe, payload, seqnum,old_seqnum); err != nil {
-					return
+                                if stream.streamType != tsio.ElementaryStreamTypeUnknown {
+					if err = stream.handleTSPacket(start, iskeyframe, payload, seqnum,old_seqnum); err != nil {
+						return
+					}
+					break
 				}
-				break
 			}
 		}
 	}

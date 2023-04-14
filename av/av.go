@@ -123,6 +123,7 @@ var (
 	SPEEX = MakeAudioCodecType(avCodecTypeMagic + 4)
 	NELLYMOSER = MakeAudioCodecType(avCodecTypeMagic + 5)
 	EAC3 = MakeAudioCodecType(avCodecTypeMagic + 6)
+	UNKNOWN = MakeAudioCodecType(avCodecTypeMagic + 7)
 )
 
 const codecTypeAudioBit = 0x1
@@ -144,6 +145,8 @@ func (self CodecType) String() string {
 		return "NELLYMOSER"
 	case EAC3:
 		return "EAC3"
+	case UNKNOWN:
+		return "UNKNOWN"
 	}
 	return ""
 }
