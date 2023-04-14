@@ -50,7 +50,7 @@ int wrap_av_filter(AVFilterContext *buffersrc_ctx,AVFilterContext *buffersink_ct
 }
 
 
-static int init_filters(AVCodecContext *dec_ctx,AVFilterGraph **filter_graph, AVFilterContext **buffersrc_ctx,AVFilterContext **buffersink_ctx)
+static int init_filters(AVCodecContext *dec_ctx,int Width,int Height,AVFilterGraph **filter_graph, AVFilterContext **buffersrc_ctx,AVFilterContext **buffersink_ctx)
 {
 	const char *filters_descr = "yadif=0:-1:0";//"yadif=0:-1:0,format=rgb24";//"yadif=1,format=yuv420p";
     char args[512];
@@ -74,8 +74,16 @@ static int init_filters(AVCodecContext *dec_ctx,AVFilterGraph **filter_graph, AV
     //        dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
     //        1,90000,//time_base.num, time_base.den,
     //        dec_ctx->sample_aspect_ratio.num, dec_ctx->sample_aspect_ratio.den);
-    
-    snprintf(args, sizeof(args),"video_size=1920x1080:pix_fmt=0:time_base=1/90000:pixel_aspect=1/1");
+    if (Width == 0) {
+        Width = 1920;
+    }
+    if (Height == 0) {
+	Height = 1080;
+    }
+    if (Height == 1084) {
+	Height = 1080;
+    }
+    snprintf(args, sizeof(args),"video_size=%dx%d:pix_fmt=0:time_base=1/90000:pixel_aspect=1/1",Width,Height);
     //printf("%s\n",args);
 
     ret = avfilter_graph_create_filter(buffersrc_ctx, buffersrc, "in",
@@ -157,7 +165,8 @@ import (
 
 type VideoDecoder struct {
 	ff *ffctx
-
+        Width int
+	Height int
 	Extradata []byte
 }
 
@@ -172,7 +181,7 @@ func (self *VideoDecoder) Setup() (err error) {
 		return
 	}
 
-	if C.init_filters(ff.codecCtx,&self.ff.g_filter_graph, &self.ff.g_buffersrc_ctx,&self.ff.g_buffersink_ctx) != 0 {
+	if C.init_filters(ff.codecCtx,C.int(self.Width),C.int(self.Height),&self.ff.g_filter_graph, &self.ff.g_buffersrc_ctx,&self.ff.g_buffersink_ctx) != 0 {
 		err = fmt.Errorf("ffmpeg: filters init error")
 		return
 	}
@@ -322,6 +331,8 @@ func NewVideoDecoder(stream av.CodecData) (dec *VideoDecoder, err error) {
 	switch stream.Type() {
 	case av.H264:
 		h264 := stream.(h264parser.CodecData)
+		_dec.Width = h264.Width()
+		_dec.Height = h264.Height()
 		_dec.Extradata = h264.AVCDecoderConfRecordBytes()
 		id = C.AV_CODEC_ID_H264
 
