@@ -22,6 +22,7 @@ type Demuxer struct {
 	pmt     *tsio.PMT
 	streams []*Stream
 	header_to_reprocess bool
+	pmt_payload []byte
 	seqnum  []int
 	tshdr   []byte
 
@@ -104,13 +105,29 @@ func (self *Demuxer) poll() (err error) {
 func (self *Demuxer) initPMT(payload []byte) (err error) {
 	var psihdrlen int
 	var datalen int
-	if _, _, psihdrlen, datalen, err = tsio.ParsePSI(payload); err != nil {
-		return
+
+
+        if len(self.pmt_payload) == 0 {
+
+	    if _, _, psihdrlen, datalen, err = tsio.ParsePSI(payload); err != nil {
+	        return
+	    }
+	    //fmt.Println(psihdrlen,datalen,len(payload))
+	    //fmt.Println(payload)
+	    //fmt.Println(payload[psihdrlen:psihdrlen+datalen])
+
+            if psihdrlen+datalen > len(payload) {
+                self.pmt_payload = append(self.pmt_payload,payload...)
+	        fmt.Println("coucou",self.pmt_payload)
+	        return
+	    }
+        } else {
+	       	fmt.Println("recoucou",self.pmt_payload)
+	    	_, _, psihdrlen, datalen, err = tsio.ParsePSI(self.pmt_payload)
+	    	payload = append(self.pmt_payload,payload[0:]...)
+	    	//fmt.Println(payload)
 	}
 	self.pmt = &tsio.PMT{}
-	//fmt.Println(psihdrlen,datalen)
-	//fmt.Println(payload)
-	//fmt.Println(payload[psihdrlen:psihdrlen+datalen])
 
 	if _, err = self.pmt.Unmarshal(payload[psihdrlen:psihdrlen+datalen]); err != nil {
 		return
@@ -222,9 +239,10 @@ func (self *Demuxer) readTSPacket() (err error) {
 	} else if self.pmt == nil {
 		//fmt.Println("PMT")
 		for _, entry := range self.pat.Entries {
-			fmt.Println(entry, pid)
+			//fmt.Println(entry, pid)
 
 			if entry.ProgramMapPID == pid {
+				fmt.Println(entry, pid)
 				if err = self.initPMT(payload); err != nil {
 					return
 				}
