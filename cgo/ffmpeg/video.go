@@ -52,8 +52,9 @@ int wrap_av_filter(AVFilterContext *buffersrc_ctx,AVFilterContext *buffersink_ct
 
 static int init_filters(AVCodecContext *dec_ctx,int Width,int Height,AVFilterGraph **filter_graph, AVFilterContext **buffersrc_ctx,AVFilterContext **buffersink_ctx)
 {
-	const char *filters_descr = "yadif=0:-1:0";//"yadif=0:-1:0,format=rgb24";//"yadif=1,format=yuv420p";
-    char args[512];
+	//const char *filters_descr = "scale=w=1024:h=576,yadif=0:-1:0";//"yadif=0:-1:0,format=rgb24";//"yadif=1,format=yuv420p";
+	char filters_descr[512];
+	char args[512];
     int ret = 0;
     const AVFilter *buffersrc  = avfilter_get_by_name("buffer");
     const AVFilter *buffersink = avfilter_get_by_name("buffersink");
@@ -134,6 +135,12 @@ static int init_filters(AVCodecContext *dec_ctx,int Width,int Height,AVFilterGra
     inputs->filter_ctx = *buffersink_ctx;
     inputs->pad_idx    = 0;
     inputs->next       = NULL;
+
+    snprintf(filters_descr, sizeof(filters_descr),"yadif=0:-1:0");
+	// dirty fix to rescale the input image to 20:11 in case resolution is 720x576
+	if (Width == 720 && Height == 576) {
+    	snprintf(filters_descr, sizeof(filters_descr),"scale=w=1024:h=576,yadif=0:-1:0");
+	} 
 
     if ((ret = avfilter_graph_parse_ptr(*filter_graph, filters_descr,
                                     &inputs, &outputs, NULL)) < 0)
@@ -238,7 +245,9 @@ func (self *VideoDecoder) DecodeWithTs(pkt []byte, dts int64, pts int64) (img *V
 
 		cerr = C.wrap_av_filter(self.ff.g_buffersrc_ctx,self.ff.g_buffersink_ctx, frame,frame_filtered);
 
-		//fmt.Println("w h ys cs",frame.format,frame.width,frame.height,frame.linesize[0],frame.linesize[1],frame.pict_type,frame.colorspace,frame.color_range,frame.buf,frame)
+		//fmt.Println("1 w h ys cs",frame.format,frame.width,frame.height,frame.linesize[0],frame.linesize[1],frame.pict_type,frame.colorspace,frame.color_range,frame.buf,frame)
+		//fmt.Println("2 w h ys cs",frame_filtered.format,frame_filtered.width,frame_filtered.height,frame_filtered.linesize[0],frame_filtered.linesize[1],frame_filtered.pict_type,frame_filtered.colorspace,frame_filtered.color_range,frame_filtered.buf,frame_filtered)
+
 
 		cpts = frame.pts
 		C.av_frame_free(&frame)
