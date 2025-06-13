@@ -4,8 +4,33 @@ package ffmpeg
 #include "ffmpeg.h"
 int wrap_avcodec_decode_audio4(AVCodecContext *ctx, AVFrame *frame, void *data, int size, int *got) {
 	struct AVPacket pkt = {.data = data, .size = size};
-	return avcodec_decode_audio4(ctx, frame, got, &pkt);
+	int ret = avcodec_send_packet(ctx,&pkt);
+	if (ret == 0)
+		*got = 1;
+	if (ret == AVERROR(EAGAIN))
+		ret = 0;
+	if (ret == 0)
+		ret = avcodec_receive_frame(ctx, frame);
+	if (ret == AVERROR(EAGAIN))
+		ret = 0;
+	return ret;
 }
+
+int wrap_avcodec_encode_audio2(AVCodecContext *ctx, AVPacket *pkt, const AVFrame *frame, int *got) {
+
+	int ret = avcodec_send_frame(ctx, frame);
+	if (ret == 0)
+		*got = 1;
+	if (ret == AVERROR(EAGAIN))
+		ret = 0;
+	if (ret == 0)
+		ret = avcodec_receive_packet(ctx,pkt);
+	if (ret == AVERROR(EAGAIN))
+		ret = 0;
+	return ret;
+}
+
+
 int wrap_avresample_convert(SwrContext *avr, int *out, int outsize, int outcount, int *in, int insize, int incount) {
 	return swr_convert(avr, (void *)out, outcount, (void *)in, incount);
 }
@@ -369,7 +394,7 @@ func (self *AudioEncoder) encodeOne(frame av.AudioFrame) (gotpkt bool, pkt []byt
 		}
 		fmt.Println(farr)
 	}
-	cerr := C.avcodec_encode_audio2(ff.codecCtx, &cpkt, ff.frame, &cgotpkt)
+	cerr := C.wrap_avcodec_encode_audio2(ff.codecCtx, &cpkt, ff.frame, &cgotpkt)
 	if cerr < C.int(0) {
 		err = fmt.Errorf("ffmpeg: avcodec_encode_audio2 failed: %d", cerr)
 		return
